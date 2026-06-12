@@ -1,13 +1,9 @@
 import cv2
 import streamlit as st
 import tensorflow as tf
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras import layers, models
 from lime import lime_image
 from skimage.segmentation import mark_boundaries
 import numpy as np
-from sklearn.metrics import confusion_matrix, classification_report
 from PIL import Image
 import os
 
@@ -18,82 +14,14 @@ st.set_page_config(page_title="Brain Tumor Classifier", layout="wide")
 
 st.title("Brain Tumor Classification (MobileNetV2)")
 
-train_path = "cleaned_dataset/Training"
-test_path = "cleaned_dataset/Testing"
-
 IMG_SIZE = 224
-BATCH_SIZE = 32
 
-# -----------------------------
-# SIDEBAR
-# -----------------------------
-# st.sidebar.header("⚙️ Settings")
-# EPOCHS = st.sidebar.slider("Epochs", 1, 30, 10)
-
-# -----------------------------
-# LOAD DATA
-# -----------------------------
-@st.cache_resource
-def load_data():
-    train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        rotation_range=15,
-        zoom_range=0.1,
-        width_shift_range=0.1,
-        height_shift_range=0.1,
-        horizontal_flip=True
-    )
-
-    test_datagen = ImageDataGenerator(rescale=1./255)
-
-    train_data = train_datagen.flow_from_directory(
-        train_path,
-        target_size=(IMG_SIZE, IMG_SIZE),
-        batch_size=BATCH_SIZE,
-        class_mode='categorical'
-    )
-
-    test_data = test_datagen.flow_from_directory(
-        test_path,
-        target_size=(IMG_SIZE, IMG_SIZE),
-        batch_size=BATCH_SIZE,
-        class_mode='categorical',
-        shuffle=False
-    )
-
-    return train_data, test_data
-
-train_data, test_data = load_data()
-
-# -----------------------------
-# MODEL
-# -----------------------------
-@st.cache_resource
-def build_model(num_classes):
-    base_model = MobileNetV2(
-        weights='imagenet',
-        include_top=False,
-        input_shape=(IMG_SIZE, IMG_SIZE, 3)
-    )
-
-    base_model.trainable = False
-
-    model = models.Sequential([
-        base_model,
-        layers.GlobalAveragePooling2D(),
-        layers.BatchNormalization(),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.5),
-        layers.Dense(num_classes, activation='softmax')
-    ])
-
-    model.compile(
-        optimizer='adam',
-        loss='categorical_crossentropy',
-        metrics=['accuracy']
-    )
-
-    return model
+CLASS_NAMES = [
+    "glioma",
+    "meningioma",
+    "notumor",
+    "pituitary"
+]
 # -----------------------------
 # GRAD-CAM FUNCTION
 # -----------------------------
@@ -248,9 +176,7 @@ if uploaded_file is not None:
     # -----------------------------
     prediction = model.predict(img_array)
 
-    class_names = list(
-        train_data.class_indices.keys()
-    )
+    class_names = CLASS_NAMES
 
     predicted_class = class_names[
         np.argmax(prediction)
